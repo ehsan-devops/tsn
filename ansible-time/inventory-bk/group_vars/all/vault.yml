@@ -1,0 +1,2 @@
+ansible_become_password: "ehsan@1400"
+ansible_ssh_pass: "ehsan"  # If using password auth

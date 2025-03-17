@@ -1,0 +1,82 @@
+- name: Configure chrony and verify synchronization
+  hosts: all
+  become: yes
+  become_method: su
+  become_user: root
+  become_flags: --login
+
+  tasks:
+    
+    - name: Comment ALL lines starting with 'pool' or 'server' in /etc/chrony.conf
+      ansible.builtin.replace:
+        path: /etc/chrony.conf
+        regexp: '^\s*(pool|server)\s+'
+        replace: '#\g<0>'
+        backup: yes
+
+    - name: Add NTP pool server to chrony.conf
+      lineinfile:
+        path: /etc/chrony.conf
+        line: "pool {{ ntp_pool_address }} iburst"
+        state: present
+        create: yes
+      notify: Restart chronyd
+
+    - name: Flush handlers to ensure chronyd restarts now
+      meta: flush_handlers
+
+    - name: Wait 30 seconds for chronyd to stabilize
+      wait_for:
+        timeout: "{{ wait_tracking }}"
+      delegate_to: localhost
+
+    - name: Check chronyc tracking status
+      command: chronyc tracking
+      register: chronyc_tracking
+      changed_when: false
+      failed_when: >
+        "'Leap status     : Normal' not in chronyc_tracking.stdout"
+      ignore_errors: yes  # Ignore failure and continue
+
+    - name: Display chronyc tracking results
+      debug:
+        msg: "NTP synchronization successful: {{ chronyc_tracking.stdout }}"
+      when: not chronyc_tracking.failed
+
+
+    - name: Copy directory to remote host
+      ansible.builtin.copy:
+        src: "{{ src_dir }}"
+        dest: "{{ dest_dir }}"
+        owner: root
+        group: root
+        mode: '0644'
+        directory_mode: '0755'
+
+    - name: Make ali.sh executable
+      ansible.builtin.file:
+        path: "{{ dest_dir }}/tehran-time-1403-2/ali.sh"
+        mode: '0755'
+
+    - name: Run ali.sh
+      ansible.builtin.command: "{{ dest_dir }}/tehran-time-1403-2/ali.sh"
+      register: script_output
+      changed_when: script_output.rc == 0
+
+    - name: Display script results
+      ansible.builtin.debug:
+        var: script_output.stdout
+
+
+    - name: Comment ALL lines containing '{{ crontab_search_word }}'
+      ansible.builtin.replace:
+        path: /etc/crontab
+        regexp: '^(\s*)([^#].*{{ crontab_search_word }}.*)$'
+        replace: '\1#\2'
+        backup: yes
+
+  handlers:
+    - name: Restart chronyd
+      service:
+        name: chronyd
+        state: restarted

@@ -1,0 +1,9 @@
+# Connection settings
+ansible_user: e.ghasemian
+ansible_port: 22
+ansible_connection: ssh
+
+# Privilege escalation
+ansible_become: yes
+ansible_become_method: su
+ansible_become_user: root

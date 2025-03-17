@@ -1,0 +1,10 @@
+- name: Configure chrony and verify synchronization
+  hosts: all
+  become: yes
+  become_method: su
+  become_user: root
+  become_flags: --login
+
+  tasks:
+    - name: Ping the remote hosts
+      ansible.builtin.ping:
